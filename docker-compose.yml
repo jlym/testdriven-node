@@ -11,3 +11,11 @@ services:
       - POSTGRES_PASSWORD=postgres
     healthcheck:
       test: exit 0
+
+  users-service:
+    container_name: users-service
+    build: ./users-service
+    ports:
+      - 3000:3000
+    depends_on: 
+      - users-db
