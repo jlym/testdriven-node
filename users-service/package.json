@@ -1,11 +1,7 @@
 {
-  "name": "node-api-service-starter",
+  "name": "users-service",
   "version": "1.0.0",
-  "description": "Minimal template to create an HTTP service using Typescript and Express.js.",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/jlym/node-api-service-starter.git"
-  },
+  "description": "Users service.",
   "main": "server.ts",
   "scripts": {
     "build": "npm run build-ts && npm run tslint",
