@@ -9,6 +9,10 @@ export interface User {
     deletedAt?: boolean;
 }
 
+/**
+ * ITimeProvider contains a method that provides the current time.  It is meant to allow
+ * tests to control the current time.
+ */
 export interface ITimeProvider {
     nowUTC(): Date;
 }
@@ -31,6 +35,11 @@ export class DbClient {
     pool: Pool;
     timeProvider: ITimeProvider;
 
+    /**
+     * Creates a DbClient with specific connection params.
+     * @param timeProvider Optionally provide a timeProvider object to allow the client to get
+     * the current time.  Meant to allow tests to specify the current time.
+     */
     constructor(
         host: string,
         port: number,
@@ -50,8 +59,8 @@ export class DbClient {
 
         this.timeProvider =
             timeProvider ?
-            timeProvider :
-            new DefaultTimeProvider();
+                timeProvider :
+                new DefaultTimeProvider();
     }
 
     addUser(userName: string, email: string): Promise<User> {
