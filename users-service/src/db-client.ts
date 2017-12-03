@@ -64,7 +64,7 @@ export class DbClient {
     }
 
     addUser(userName: string, email: string): Promise<User> {
-        const text = "INSERT INTO users(username, email, active, created_at) VALUES ($1, $2, $3, $4) RETURNING *;"
+        const text = "INSERT INTO users(username, email, active, created_at) VALUES ($1, $2, $3, $4) RETURNING *;";
         const now = this.timeProvider.nowUTC();
         const values = [userName, email, true, now];
 
