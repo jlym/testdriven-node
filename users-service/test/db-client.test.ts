@@ -2,7 +2,7 @@ import { } from "jest";
 import * as supertest from "supertest";
 import * as db from "../src/db-client";
 import * as uuid from "uuid/v4";
-import { ITimeProvider } from "../src/db-client";
+import { ITimeProvider, User } from "../src/db-client";
 
 const uniqueUserName = (): string => {
     let userName: string = uuid();
@@ -27,6 +27,12 @@ class StaticTimeProvider implements ITimeProvider {
     }
 }
 
+const addUniqueUser = async (dbClient: db.DbClient): Promise<db.User> => {
+    const userName = uniqueUserName();
+    const email = userName + "@gmail.com";
+    return await dbClient.addUser(userName, email);
+};
+
 describe("DbClient", () => {
 
     const timeProvider = new StaticTimeProvider(new Date());
@@ -35,9 +41,10 @@ describe("DbClient", () => {
     );
 
     describe("addUser", () => {
-        it("adds a user", () => {
+
+        it("adds a user", async () => {
             const userName = uniqueUserName();
-            const email = uniqueUserName + "@gmail.com";
+            const email = userName + "@gmail.com";
 
             return dbClient.addUser(userName, email)
                 .then(user => {
@@ -47,9 +54,90 @@ describe("DbClient", () => {
                     expect(user.userName).toEqual(userName);
                     expect(user.email).toEqual(email);
                     expect(user.createdAt).toEqual(timeProvider.nowUTC());
-                    expect(user.deletedAt).toBeNull();
+                    expect(user.deletedAt).toBeUndefined();
                     expect(user.active).toBeTruthy();
                 });
+        });
+    });
+
+    describe("getUser", () => {
+
+        it ("returns a user when given a user that was added 1", async () => {
+            const addedUser = await addUniqueUser(dbClient);
+            expect(addedUser).toBeDefined();
+
+            const returnedUser = await dbClient.getUser(addedUser.id);
+
+            expect(returnedUser).toBeDefined();
+            expect(returnedUser.id).toEqual(addedUser.id);
+            expect(returnedUser.userName).toEqual(addedUser.userName);
+            expect(returnedUser.email).toEqual(addedUser.email);
+            expect(returnedUser.createdAt).toEqual(addedUser.createdAt);
+            expect(returnedUser.deletedAt).toBeUndefined();
+            expect(returnedUser.active).toBeTruthy();
+        });
+
+        it ("returns undefined when given an unknown user ID", async () => {
+            const returnedUser = await dbClient.getUser("UNKNOWN");
+            expect(returnedUser).toBeUndefined();
+        });
+    });
+
+    describe("deleteUser", () => {
+
+        it ("returns a user when given a user ID that exists", async () => {
+            const addedUser = await addUniqueUser(dbClient);
+            expect(addedUser).toBeDefined();
+
+            let returnedUser = await dbClient.deleteUser(addedUser.id);
+            expect(returnedUser).toBeDefined();
+            expect(returnedUser.id).toEqual(addedUser.id);
+
+            returnedUser = await dbClient.deleteUser(addedUser.id);
+            expect(returnedUser).toBeUndefined();
+        });
+
+        it ("returns undefined when given an unknown user ID", async () => {
+            const returnedUser = await dbClient.deleteUser("unknown");
+            expect(returnedUser).toBeUndefined();
+        });
+    });
+
+    describe("updateUser", () => {
+
+        it ("returns a user when given a user ID that exists", async () => {
+            const addedUser = await addUniqueUser(dbClient);
+            expect(addedUser).toBeDefined();
+
+            const userName = uniqueUserName();
+            const email = userName + "@gmail.com";
+
+            const userWithUpdates: db.UpdateUserArgs = {
+                id: addedUser.id,
+                userName: userName,
+                email: email,
+                active: true
+            };
+            const returnedUser = await dbClient.updateUser(userWithUpdates);
+            expect(returnedUser).toBeDefined();
+            expect(returnedUser.id).toEqual(addedUser.id);
+            expect(returnedUser.userName).toEqual(userWithUpdates.userName);
+            expect(returnedUser.email).toEqual(userWithUpdates.email);
+        });
+
+        it ("returns undefined when given an unknown user ID", async () => {
+            const userName = uniqueUserName();
+            const email = userName + "@gmail.com";
+
+            const userWithUpdates: db.UpdateUserArgs = {
+                id: "unknown",
+                userName: userName,
+                email: email,
+                active: true
+            };
+
+            const returnedUser = await dbClient.updateUser(userWithUpdates);
+            expect(returnedUser).toBeUndefined();
         });
     });
 });

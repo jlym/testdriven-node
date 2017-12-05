@@ -1,12 +1,24 @@
-import { Pool, ConnectionConfig } from "pg";
+import { Pool, ConnectionConfig, QueryResult } from "pg";
+import * as uuid from "uuid/v4";
 
-export interface User {
+export class User {
     id: string;
     userName: string;
     email: string;
     active: boolean;
     createdAt: Date;
-    deletedAt?: boolean;
+    deletedAt: Date;
+
+    public constructor(init?: Partial<User>) {
+        Object.assign(this, init);
+    }
+}
+
+export interface UpdateUserArgs {
+    id: string;
+    userName?: string;
+    email?: string;
+    active?: boolean;
 }
 
 /**
@@ -64,22 +76,100 @@ export class DbClient {
     }
 
     addUser(userName: string, email: string): Promise<User> {
-        const text = "INSERT INTO users(username, email, active, created_at) VALUES ($1, $2, $3, $4) RETURNING *;";
+        const text = `
+            INSERT INTO users(user_id, username, email, active, created_at)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING *;`;
+        const userID: string = uuid();
         const now = this.timeProvider.nowUTC();
-        const values = [userName, email, true, now];
+        const values = [userID, userName, email, true, now];
 
         return this.pool.query(text, values)
-            .then(res => {
-                const row = res.rows[0];
-                const user: User = {
-                    id: row.id,
-                    userName: row["username"],
-                    email: row["email"] as string,
-                    active: row["active"] as boolean,
-                    createdAt: row["created_at"] as Date,
-                    deletedAt: row["deleted_at"] as boolean
-                };
-                return user;
-            });
+            .then(this.readUserFromQueryResult);
+    }
+
+    async getUser(userID: string): Promise<User> {
+        const text = "SELECT * FROM users WHERE user_id = $1;";
+        const values = [userID];
+
+        const result = await this.pool.query(text, values);
+        return this.readUserFromQueryResult(result);
+    }
+
+    async deleteUser(userID: string): Promise<User> {
+        const text = `
+            DELETE FROM users
+            WHERE user_id = $1
+            RETURNING *;`;
+        const now = this.timeProvider.nowUTC();
+        const values = [userID];
+
+        const result = await this.pool.query(text, values);
+        return this.readUserFromQueryResult(result);
+    }
+
+    async updateUser(user: UpdateUserArgs): Promise<User> {
+        const setClauses: string[] = [];
+        const values: any[] = [];
+        let valuePlaceholder: number = 1;
+        if (user.userName != undefined) {
+            values.push(user.userName);
+            setClauses.push(`username = $${valuePlaceholder}`);
+            valuePlaceholder++;
+        }
+        if (user.active != undefined) {
+            values.push(user.active);
+            setClauses.push(`active = $${valuePlaceholder}`);
+            valuePlaceholder++;
+        }
+        if (user.email != undefined) {
+            values.push(user.email);
+            setClauses.push(`email = $${valuePlaceholder}`);
+            valuePlaceholder++;
+        }
+        const setClause = "SET " + setClauses.join(", ");
+
+        const text = `
+            UPDATE users
+            ${setClause}
+            WHERE user_id = $${valuePlaceholder}
+            RETURNING *;`;
+        values.push(user.id);
+
+        const result = await this.pool.query(text, values);
+        return this.readUserFromQueryResult(result);
+    }
+
+    private readUserFromQueryResult(result: QueryResult): User {
+        if (result.rowCount > 1) {
+            throw new Error(`Expected that query would return at most 1 User, but it returned ${result.rowCount}.`);
+        }
+        else if (result.rowCount == 0) {
+            return undefined;
+        }
+
+        const row = result.rows[0];
+        const user: User = new User();
+
+        if (row["user_id"] != undefined) {
+            user.id = row["user_id"];
+        }
+        if (row["username"] != undefined) {
+            user.userName = row["username"];
+        }
+        if (row["email"] != undefined) {
+            user.email = row["email"];
+        }
+        if (row["active"] != undefined) {
+            user.active = row["active"];
+        }
+        if (row["created_at"] != undefined) {
+            user.createdAt = row["created_at"];
+        }
+        if (row["deleted_at"] != undefined) {
+            user.deletedAt = row["deleted_at"];
+        }
+
+        return user;
     }
 }
