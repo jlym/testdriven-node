@@ -83,6 +83,50 @@ describe("DbClient", () => {
         });
     });
 
+    describe("getUsers", () => {
+
+        it ("iterates through all users that were added", async () => {
+            const addedUserIDs: string[] = [];
+            const numUsers = 5;
+            for (let i = 0; i < numUsers; i++) {
+                const addedUser = await addUniqueUser(dbClient);
+                expect(addedUser).toBeDefined();
+                addedUserIDs.push(addedUser.id);
+            }
+
+            const allReturnedUserIDs: string[] = [];
+            let offset = 0;
+            while (true) {
+                const limit = 4;
+                const returnedUsers = await dbClient.getUsers(offset, limit);
+
+                expect(returnedUsers).toBeDefined();
+                expect(returnedUsers.length).toBeLessThanOrEqual(limit);
+                if (returnedUsers.length === 0) {
+                    break;
+                }
+
+                for (let i = 0; i < returnedUsers.length; i++) {
+                    allReturnedUserIDs.push(returnedUsers[i].id);
+                }
+
+                offset += returnedUsers.length;
+            }
+
+            // Assert there are no duplicates in the list.
+            const seenUserIDs = new Set<string>();
+            addedUserIDs.forEach((addedID, i) => {
+                expect(seenUserIDs.has(addedID)).toBeFalsy();
+                seenUserIDs.add(addedID);
+            });
+
+            // Verify that the users that we added at the beginning of the test are in the list.
+            addedUserIDs.forEach((addedID, i) => {
+                expect(allReturnedUserIDs).toContain(addedID);
+            });
+        });
+    });
+
     describe("deleteUser", () => {
 
         it ("returns a user when given a user ID that exists", async () => {

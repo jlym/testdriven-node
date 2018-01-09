@@ -96,6 +96,18 @@ export class DbClient {
         return this.readUserFromQueryResult(result);
     }
 
+    async getUsers(offset: number, limit: number): Promise<User[]> {
+        const text = `
+            SELECT * FROM users
+            ORDER BY user_id ASC
+            OFFSET $1
+            LIMIT $2`;
+        const values = [offset, limit];
+
+        const result = await this.pool.query(text, values);
+        return this.readUsersFromQueryResult(result);
+    }
+
     async deleteUser(userID: string): Promise<User> {
         const text = `
             DELETE FROM users
@@ -171,5 +183,36 @@ export class DbClient {
         }
 
         return user;
+    }
+
+    private readUsersFromQueryResult(result: QueryResult): User[] {
+        const users: User[] = [];
+        for (let i = 0; i < result.rowCount; i++) {
+            const row = result.rows[i];
+            const user: User = new User();
+
+            if (row["user_id"] != undefined) {
+                user.id = row["user_id"];
+            }
+            if (row["username"] != undefined) {
+                user.userName = row["username"];
+            }
+            if (row["email"] != undefined) {
+                user.email = row["email"];
+            }
+            if (row["active"] != undefined) {
+                user.active = row["active"];
+            }
+            if (row["created_at"] != undefined) {
+                user.createdAt = row["created_at"];
+            }
+            if (row["deleted_at"] != undefined) {
+                user.deletedAt = row["deleted_at"];
+            }
+
+            users.push(user);
+        }
+
+        return users;
     }
 }
